@@ -42,72 +42,58 @@ You will need:
 ## 🔧 Installation
 
 ### 1️⃣ Clone the Repository
-```bash
 git clone <repository-url>
-cd <repository-directort>
+cd <repository-directory>
 
-```
-
-##2️⃣ Install Required Packages
-```bash
+### 2️⃣ Install Required Packages
 pip install streamlit langchain google-generativeai
-```
+
 Add additional APIs based on your project setup.
 
-###▶️ Usage
+---
+
+## ▶️ Usage
+
 Start the Streamlit application:
-```bash
 streamlit run app.py
 
-```
 Inside the App:
 
-Enter Source and Destination
+- Enter Source and Destination  
+- Click Find Travel Options  
+- Receive AI-generated:
+  - Travel modes  
+  - Route suggestions  
+  - Timing & duration  
+  - Travel tips  
 
-Click Find Travel Options
+---
 
-Receive AI-generated:
-
-Travel modes
-
-Route suggestions
-
-Timing & duration
-
-Travel tips
-
-##🧠 System Prompt
+## 🧠 System Prompt
 GlobeGuide-AI includes a powerful system prompt designed to:
 
-Act as a smart global travel assistant
+- Act as a smart global travel assistant  
+- Provide India-specific + global travel suggestions  
+- Utilize real-time API data  
+- Adapt to user preferences  
 
-Provide India-specific + global travel suggestions
+---
 
-Utilize real-time API data
-
-Adapt to user preferences
-
-###🔗 Live Demo
-
-Access the app here:
-
-###🤝 Contributing
-
+## 🤝 Contributing
 Contributions are welcome! Fork the repository and submit PRs for:
 
-New features
+- New features  
+- UI improvements  
+- Bug fixes  
 
-UI improvements
+---
 
-Bug fixes
-
-###📜 License
-
+## 📜 License
 This project is licensed under the MIT License.
 Check the LICENSE file for more details.
 
-###📬 Contact
+---
 
-Gokul
+## 📬 Contact
+Gokul  
 📧 Email: gorthigokul77@gmail.com
-
