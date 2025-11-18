@@ -3,7 +3,7 @@ import os
 from datetime import date
 
 import streamlit as st
-from google import genai
+from google import genai  # NEW SDK
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -15,6 +15,7 @@ from reportlab.lib import colors
 # Streamlit App Config
 # --------------------------------------------------
 st.set_page_config(page_title="AI Travel Planner", layout="wide")
+
 
 # --------------------------------------------------
 # API KEY LOADING (FIXED)
@@ -141,7 +142,12 @@ with st.sidebar:
     st.header("Model Settings")
     model_choice = st.selectbox(
         "Gemini Model",
-        ["gemini-2.5-flash", "gemini-2.5-pro"]
+        [
+            "gemini-2.0-flash",
+            "gemini-2.0-pro",
+            "gemini-2.0-flash-lite",
+            "gemini-2.0-pro-exp"
+        ]
     )
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
@@ -168,28 +174,32 @@ Must visit landmarks: {landmarks}
 Provide:
 - Daily itinerary
 - Morning/afternoon/evening plan
-- Food recommendations
-- Transport tips
-- A travel checklist
+- Food suggestions
+- Transportation guidance
+- A final travel checklist
 """
 
 
 # --------------------------------------------------
-# Gemini API Call (new google-genai SDK)
+# Gemini API Call (NEW FORMAT — FIXED)
 # --------------------------------------------------
 def call_gemini(prompt, image_bytes=None):
     client = genai.Client(api_key=API_KEY)
 
+    contents = [{"text": prompt}]
+
     if image_bytes:
-        result = client.models.generate_content(
-            model=model_choice,
-            contents=[prompt, image_bytes]
-        )
-    else:
-        result = client.models.generate_content(
-            model=model_choice,
-            contents=prompt
-        )
+        contents.append({
+            "media": {
+                "mime_type": "image/jpeg",
+                "data": image_bytes
+            }
+        })
+
+    result = client.models.generate_content(
+        model=model_choice,
+        contents=contents
+    )
 
     return result.text
 
@@ -240,3 +250,4 @@ if generate:
             "travel_itinerary.txt",
             "text/plain"
         )
+
