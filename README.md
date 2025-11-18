@@ -48,7 +48,7 @@ cd <repository-directort>
 
 ```
 
-###2️⃣ Install Required Packages
+##2️⃣ Install Required Packages
 ```bash
 pip install streamlit langchain google-generativeai
 ```
