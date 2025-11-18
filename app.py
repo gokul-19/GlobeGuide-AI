@@ -14,7 +14,7 @@ from reportlab.lib import colors
 # --------------------------------------------------
 # Streamlit App Config
 # --------------------------------------------------
-st.set_page_config(page_title="AI Travel Planner", layout="wide")
+st.set_page_config(page_title="GlobeGuide-AI", layout="wide")
 
 
 # --------------------------------------------------
