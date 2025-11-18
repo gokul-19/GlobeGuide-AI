@@ -35,7 +35,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     styles = getSampleStyleSheet()
     story = []
 
-    # COVER PAGE
     title_style = ParagraphStyle(
         name="TitleStyle",
         parent=styles["Title"],
@@ -65,7 +64,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
 
     story.append(PageBreak())
 
-    # SUMMARY TABLE
     summary = [
         ["Source", trip_details["source"]],
         ["Destination", trip_details["destination"]],
@@ -90,7 +88,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     story.append(table)
     story.append(Spacer(1, 20))
 
-    # ITINERARY TEXT
     story.append(Paragraph("<b>Detailed Itinerary</b>", styles["Heading2"]))
 
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=12, leading=16)
@@ -109,7 +106,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
 # ------------------------------------
 st.title("🌍 AI Travel Planner")
 st.subheader("Generate your perfect travel itinerary with AI ✨")
-
 
 with st.sidebar:
     st.header("Trip Details")
@@ -141,17 +137,16 @@ with st.sidebar:
     travel_style = st.selectbox("Travel Style", ["Relaxed", "Fast-Paced", "Adventurous"])
     landmarks = st.text_input("Must Visit Landmarks", "Eiffel Tower, Grand Canyon")
 
- st.header("Model Settings")
-model_choice = st.selectbox(
-    "Gemini Model",
-    [
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
-    ]
-)
-
+    st.header("Model Settings")
+    model_choice = st.selectbox(
+        "Gemini Model",
+        [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
+        ]
+    )
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
 
@@ -179,7 +174,7 @@ Format:
 - Morning, afternoon, evening schedule
 - Food recommendations
 - Transport tips
-- A final section: "Travel Checklist"
+- Final: "Travel Checklist"
 """
 
 
@@ -213,10 +208,8 @@ if generate:
         itinerary = call_gemini(prompt, image_bytes)
 
         st.success("✔ Your Travel Itinerary is Ready!")
-
         st.markdown(itinerary)
 
-        # PDF Export
         pdf_buffer = generate_styled_pdf_buffer(
             {
                 "source": source,
