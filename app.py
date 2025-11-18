@@ -3,7 +3,7 @@ import os
 from datetime import date
 
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -11,21 +11,23 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, 
 from reportlab.lib import colors
 
 
-# ------------------------------------
-# App Setup
-# ------------------------------------
+# --------------------------------------------------
+# Streamlit App Config
+# --------------------------------------------------
 st.set_page_config(page_title="AI Travel Planner", layout="wide")
 
-# Load API Key
-if "GOOGLE_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GOOGLE_API_KEY"]
-else:
+# --------------------------------------------------
+# API KEY LOADING (FIXED)
+# --------------------------------------------------
+try:
+    API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
+except:
     API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 
-# ------------------------------------
+# --------------------------------------------------
 # Styled PDF Generator
-# ------------------------------------
+# --------------------------------------------------
 def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -35,6 +37,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     styles = getSampleStyleSheet()
     story = []
 
+    # Cover Page
     title_style = ParagraphStyle(
         name="TitleStyle",
         parent=styles["Title"],
@@ -64,6 +67,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
 
     story.append(PageBreak())
 
+    # Summary Table
     summary = [
         ["Source", trip_details["source"]],
         ["Destination", trip_details["destination"]],
@@ -88,6 +92,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     story.append(table)
     story.append(Spacer(1, 20))
 
+    # Itinerary Text
     story.append(Paragraph("<b>Detailed Itinerary</b>", styles["Heading2"]))
 
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=12, leading=16)
@@ -101,15 +106,14 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     return buffer
 
 
-# ------------------------------------
+# --------------------------------------------------
 # UI
-# ------------------------------------
+# --------------------------------------------------
 st.title("🌍 AI Travel Planner")
 st.subheader("Generate your perfect travel itinerary with AI ✨")
 
 with st.sidebar:
     st.header("Trip Details")
-
     source = st.text_input("Source", "New York")
     destination = st.text_input("Destination", "Los Angeles")
     date_input = st.date_input("Start Date", date.today())
@@ -120,14 +124,11 @@ with st.sidebar:
     currency = st.selectbox("Currency", ["USD", "EUR", "INR", "GBP", "AUD", "JPY"])
 
     st.header("Preferences")
-
     language = st.selectbox(
         "Language",
-        [
-            "English", "Spanish", "French", "German", "Japanese", "Chinese",
-            "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu",
-            "Korean", "Italian", "Russian", "Dutch"
-        ]
+        ["English", "Spanish", "French", "German", "Japanese", "Chinese",
+         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu",
+         "Korean", "Italian", "Russian", "Dutch"]
     )
 
     interests = st.text_input("Interests", "nature, historical sites")
@@ -140,12 +141,7 @@ with st.sidebar:
     st.header("Model Settings")
     model_choice = st.selectbox(
         "Gemini Model",
-        [
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro"
-        ]
+        ["gemini-2.5-flash", "gemini-2.5-pro"]
     )
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
@@ -153,13 +149,13 @@ with st.sidebar:
     generate = st.button("Generate Travel Plan")
 
 
-# ------------------------------------
-# Gemini Prompt
-# ------------------------------------
+# --------------------------------------------------
+# Build Prompt
+# --------------------------------------------------
 def build_prompt():
     return f"""
 Create a detailed travel itinerary in {language} for a trip from {source} to {destination} starting on {date_str}.
-Trip duration: {duration} days.
+Duration: {duration} days.
 Budget: {currency} {budget}.
 
 Interests: {interests}
@@ -167,35 +163,40 @@ Dietary restrictions: {dietary}
 Activity level: {activity_level}
 Accommodation preference: {accommodation_preference}
 Travel style: {travel_style}
-Must-visit landmarks: {landmarks}
+Must visit landmarks: {landmarks}
 
-Format:
-- Day-by-day itinerary
-- Morning, afternoon, evening schedule
+Provide:
+- Daily itinerary
+- Morning/afternoon/evening plan
 - Food recommendations
 - Transport tips
-- Final: "Travel Checklist"
+- A travel checklist
 """
 
 
-# ------------------------------------
-# Gemini API Call
-# ------------------------------------
+# --------------------------------------------------
+# Gemini API Call (new google-genai SDK)
+# --------------------------------------------------
 def call_gemini(prompt, image_bytes=None):
-    genai.configure(api_key=API_KEY)
-    model = genai.GenerativeModel(model_choice)
+    client = genai.Client(api_key=API_KEY)
 
     if image_bytes:
-        res = model.generate_content([prompt, image_bytes])
+        result = client.models.generate_content(
+            model=model_choice,
+            contents=[prompt, image_bytes]
+        )
     else:
-        res = model.generate_content(prompt)
+        result = client.models.generate_content(
+            model=model_choice,
+            contents=prompt
+        )
 
-    return res.text
+    return result.text
 
 
-# ------------------------------------
+# --------------------------------------------------
 # Run Generator
-# ------------------------------------
+# --------------------------------------------------
 if generate:
     if not API_KEY:
         st.error("❌ API Key missing. Add it to .streamlit/secrets.toml")
@@ -210,6 +211,7 @@ if generate:
         st.success("✔ Your Travel Itinerary is Ready!")
         st.markdown(itinerary)
 
+        # PDF Export
         pdf_buffer = generate_styled_pdf_buffer(
             {
                 "source": source,
@@ -233,7 +235,7 @@ if generate:
         )
 
         st.download_button(
-            "📄 Download TXT",
+            "📄 Download TXT File",
             itinerary,
             "travel_itinerary.txt",
             "text/plain"
