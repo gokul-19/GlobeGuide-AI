@@ -141,8 +141,17 @@ with st.sidebar:
     travel_style = st.selectbox("Travel Style", ["Relaxed", "Fast-Paced", "Adventurous"])
     landmarks = st.text_input("Must Visit Landmarks", "Eiffel Tower, Grand Canyon")
 
-    st.header("Model Settings")
-    model_choice = st.selectbox("Gemini Model", ["gemini-1.5-flash", "gemini-1.5-pro"])
+ st.header("Model Settings")
+model_choice = st.selectbox(
+    "Gemini Model",
+    [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ]
+)
+
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
 
