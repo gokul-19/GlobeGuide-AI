@@ -106,7 +106,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
 # --------------------------------------------------
 # UI
 # --------------------------------------------------
-st.title("🌍 AI Travel Planner")
+st.title("🌍 GlobeGuide-AI")
 st.subheader("Generate your perfect travel itinerary with AI ✨")
 
 with st.sidebar:
