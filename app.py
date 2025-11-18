@@ -3,7 +3,7 @@ import os
 from datetime import date
 
 import streamlit as st
-from google import genai  # NEW SDK
+from google import genai
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -38,7 +38,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     styles = getSampleStyleSheet()
     story = []
 
-    # Cover Page
     title_style = ParagraphStyle(
         name="TitleStyle",
         parent=styles["Title"],
@@ -68,7 +67,6 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
 
     story.append(PageBreak())
 
-    # Summary Table
     summary = [
         ["Source", trip_details["source"]],
         ["Destination", trip_details["destination"]],
@@ -93,9 +91,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     story.append(table)
     story.append(Spacer(1, 20))
 
-    # Itinerary Text
     story.append(Paragraph("<b>Detailed Itinerary</b>", styles["Heading2"]))
-
     body = ParagraphStyle("body", parent=styles["Normal"], fontSize=12, leading=16)
 
     for p in itinerary_text.split("\n\n"):
@@ -172,29 +168,34 @@ Travel style: {travel_style}
 Must visit landmarks: {landmarks}
 
 Provide:
-- Daily itinerary
-- Morning/afternoon/evening plan
-- Food suggestions
+- Full daily plan
+- Morning / Afternoon / Evening schedule
+- Food recommendations
 - Transportation guidance
-- A final travel checklist
+- Travel checklist
 """
 
 
 # --------------------------------------------------
-# Gemini API Call (NEW FORMAT — FIXED)
+# Gemini API Call — FINAL FIXED VERSION
 # --------------------------------------------------
 def call_gemini(prompt, image_bytes=None):
     client = genai.Client(api_key=API_KEY)
 
-    contents = [{"text": prompt}]
+    parts = [{"text": prompt}]
 
     if image_bytes:
-        contents.append({
-            "media": {
+        parts.append({
+            "inline_data": {
                 "mime_type": "image/jpeg",
                 "data": image_bytes
             }
         })
+
+    contents = [{
+        "role": "user",
+        "parts": parts
+    }]
 
     result = client.models.generate_content(
         model=model_choice,
@@ -221,7 +222,6 @@ if generate:
         st.success("✔ Your Travel Itinerary is Ready!")
         st.markdown(itinerary)
 
-        # PDF Export
         pdf_buffer = generate_styled_pdf_buffer(
             {
                 "source": source,
