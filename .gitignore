@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Streamlit secrets (DO NOT UPLOAD YOUR API KEY)
+.streamlit/secrets.toml
+
+# Environment files
+.env
+venv/
+.venv/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Reports / temp
+*.pdf
+*.txt
+
+# IDE
+.vscode/
+.idea/
+
+# PyCharm
+*.iml
