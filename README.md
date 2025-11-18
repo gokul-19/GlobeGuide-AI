@@ -76,7 +76,7 @@ Timing & duration
 
 Travel tips
 
-###🧠 System Prompt
+##🧠 System Prompt
 GlobeGuide-AI includes a powerful system prompt designed to:
 
 Act as a smart global travel assistant
