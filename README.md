@@ -74,7 +74,7 @@ It helps users discover optimal travel routes, recommended modes of transport, a
 ```
 ---
 ## 🚀 Live Demo  
-👉 **https://globeguide-ai-ttqhnyxl8sjmzxskriagti.streamlit.app/**
+👉 **(https://globeguide-ai-kxeuqxfhnfu9n8cwpyrkwj.streamlit.app/)**
 
 ---
 
