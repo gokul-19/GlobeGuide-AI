@@ -124,7 +124,7 @@ with st.sidebar:
     language = st.selectbox(
         "Language",
         ["English", "Spanish", "French", "German", "Japanese", "Chinese",
-         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu",
+         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu", "kannada"
          "Korean", "Italian", "Russian", "Dutch"]
     )
 
