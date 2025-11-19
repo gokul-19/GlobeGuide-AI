@@ -73,6 +73,10 @@ It helps users discover optimal travel routes, recommended modes of transport, a
                 └──────────────────────────────┘
 ```
 ---
+## 🚀 Live Demo  
+👉 **https://globeguide-ai-ttqhnyxl8sjmzxskriagti.streamlit.app/**
+
+---
 
 ## ✨ Features
 
