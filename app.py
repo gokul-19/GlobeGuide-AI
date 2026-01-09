@@ -17,12 +17,12 @@ from reportlab.lib import colors
 st.set_page_config(page_title="GlobeGuide-AI", layout="wide")
 
 # -----------------------------
-# API Key
+# Default API Key (from secrets or env)
 # -----------------------------
 try:
-    API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
+    DEFAULT_API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
 except:
-    API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+    DEFAULT_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 # -----------------------------
 # PDF Generator
@@ -101,7 +101,7 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     return buffer
 
 # -----------------------------
-# UI
+# Sidebar / Inputs
 # -----------------------------
 st.title("🌍 GlobeGuide-AI")
 st.subheader("Generate your perfect travel itinerary with AI ✨")
@@ -129,6 +129,14 @@ with st.sidebar:
     accommodation_preference = st.selectbox("Accommodation", ["Hotel", "Hostel", "Apartment"])
     travel_style = st.selectbox("Travel Style", ["Relaxed", "Fast-Paced", "Adventurous"])
     landmarks = st.text_input("Must Visit Landmarks", "Eiffel Tower, Grand Canyon")
+
+    st.header("API Key Settings")
+    user_api_key = st.text_input(
+        "Enter your own API key (optional)",
+        value="",
+        type="password",
+        help="If you provide a key, it will override the default key."
+    )
 
     st.header("Model Settings")
     model_choice = st.selectbox(
@@ -164,15 +172,19 @@ Provide:
 """
 
 # -----------------------------
-# Call Gemini API (New Compatible)
+# Call Gemini API
 # -----------------------------
-def call_gemini(prompt, image_bytes=None):
-    client = genai.Client(api_key=API_KEY)
+def call_gemini(prompt, image_bytes=None, api_key=None):
+    key_to_use = api_key.strip() if api_key and api_key.strip() else DEFAULT_API_KEY
+    if not key_to_use:
+        return "⚠️ No API key provided. Add it in the sidebar."
 
-    # New API requires plain string
+    client = genai.Client(api_key=key_to_use)
+
+    # New API format requires just plain string
     contents = prompt
 
-    # Optional image support
+    # Optional image
     if image_bytes:
         img = Image(content=image_bytes, mime_type="image/jpeg")
         contents = [contents, img]
@@ -193,43 +205,39 @@ def call_gemini(prompt, image_bytes=None):
 # Generate Itinerary
 # -----------------------------
 if generate:
-    if not API_KEY:
-        st.error("❌ API Key missing. Add it to .streamlit/secrets.toml")
-    else:
-        st.info("⏳ Generating travel plan...")
-        prompt = build_prompt()
-        image_bytes = uploaded_image.read() if uploaded_image else None
-        itinerary = call_gemini(prompt, image_bytes)
+    prompt = build_prompt()
+    image_bytes = uploaded_image.read() if uploaded_image else None
+    itinerary = call_gemini(prompt, image_bytes, api_key=user_api_key)
 
-        st.success("✔ Your Travel Itinerary is Ready!")
-        st.markdown(itinerary)
+    st.success("✔ Your Travel Itinerary is Ready!")
+    st.markdown(itinerary)
 
-        pdf_buffer = generate_styled_pdf_buffer(
-            {
-                "source": source,
-                "destination": destination,
-                "date": date_str,
-                "budget": budget,
-                "duration": duration,
-                "currency": currency,
-                "language": language,
-                "accommodation_preference": accommodation_preference,
-                "travel_style": travel_style,
-            },
-            itinerary
-        )
+    pdf_buffer = generate_styled_pdf_buffer(
+        {
+            "source": source,
+            "destination": destination,
+            "date": date_str,
+            "budget": budget,
+            "duration": duration,
+            "currency": currency,
+            "language": language,
+            "accommodation_preference": accommodation_preference,
+            "travel_style": travel_style,
+        },
+        itinerary
+    )
 
-        st.download_button(
-            "📄 Download Styled PDF",
-            pdf_buffer,
-            "travel_itinerary.pdf",
-            "application/pdf"
-        )
+    st.download_button(
+        "📄 Download Styled PDF",
+        pdf_buffer,
+        "travel_itinerary.pdf",
+        "application/pdf"
+    )
 
-        st.download_button(
-            "📄 Download TXT File",
-            itinerary,
-            "travel_itinerary.txt",
-            "text/plain"
-        )
+    st.download_button(
+        "📄 Download TXT File",
+        itinerary,
+        "travel_itinerary.txt",
+        "text/plain"
+    )
 
