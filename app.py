@@ -4,6 +4,7 @@ from datetime import date
 
 import streamlit as st
 from google import genai
+from google.genai.types import Image
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -136,7 +137,6 @@ with st.sidebar:
     )
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
-
     generate = st.button("Generate Travel Plan")
 
 # -----------------------------
@@ -164,28 +164,28 @@ Provide:
 """
 
 # -----------------------------
-# Call Gemini
+# Call Gemini API (New Compatible)
 # -----------------------------
 def call_gemini(prompt, image_bytes=None):
+    client = genai.Client(api_key=API_KEY)
+
+    # New API requires plain string
+    contents = prompt
+
+    # Optional image support
+    if image_bytes:
+        img = Image(content=image_bytes, mime_type="image/jpeg")
+        contents = [contents, img]
+
     try:
-        client = genai.Client(api_key=API_KEY)
-
-        contents = [{"type": "text", "text": prompt}]
-        if image_bytes:
-            contents.append({
-                "type": "image",
-                "inline_data": {"mime_type": "image/jpeg", "data": image_bytes}
-            })
-
         result = client.models.generate_content(
             model=model_choice,
             contents=contents
         )
         return result.text
-
     except Exception as e:
         if "RESOURCE_EXHAUSTED" in str(e):
-            return "⚠️ Gemini API quota exceeded. Please try again later."
+            return "⚠️ Gemini API quota exceeded. Please try later."
         else:
             return f"⚠️ Gemini API error: {e}"
 
