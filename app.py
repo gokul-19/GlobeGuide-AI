@@ -10,25 +10,22 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
 from reportlab.lib import colors
 
-
-# --------------------------------------------------
-# Streamlit App Config
-# --------------------------------------------------
+# -----------------------------
+# Streamlit Config
+# -----------------------------
 st.set_page_config(page_title="GlobeGuide-AI", layout="wide")
 
-
-# --------------------------------------------------
-# API KEY LOADING (FIXED)
-# --------------------------------------------------
+# -----------------------------
+# API Key
+# -----------------------------
 try:
     API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
 except:
     API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
-
-# --------------------------------------------------
-# Styled PDF Generator
-# --------------------------------------------------
+# -----------------------------
+# PDF Generator
+# -----------------------------
 def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -102,10 +99,9 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     buffer.seek(0)
     return buffer
 
-
-# --------------------------------------------------
+# -----------------------------
 # UI
-# --------------------------------------------------
+# -----------------------------
 st.title("🌍 GlobeGuide-AI")
 st.subheader("Generate your perfect travel itinerary with AI ✨")
 
@@ -117,17 +113,15 @@ with st.sidebar:
     date_str = date_input.strftime("%Y-%m-%d")
     budget = st.number_input("Budget", min_value=100, value=1000)
     duration = st.slider("Duration (days)", 1, 60, 7)
-
     currency = st.selectbox("Currency", ["USD", "EUR", "INR", "GBP", "AUD", "JPY"])
 
     st.header("Preferences")
     language = st.selectbox(
         "Language",
         ["English", "Spanish", "French", "German", "Japanese", "Chinese",
-         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu", "kannada",
+         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu", "Kannada",
          "Korean", "Italian", "Russian", "Dutch"]
     )
-
     interests = st.text_input("Interests", "nature, historical sites")
     dietary = st.text_input("Dietary Restrictions", "None")
     activity_level = st.selectbox("Activity Level", ["Low", "Moderate", "High"])
@@ -138,22 +132,16 @@ with st.sidebar:
     st.header("Model Settings")
     model_choice = st.selectbox(
         "Gemini Model",
-        [
-            "gemini-2.0-flash",
-            "gemini-2.0-pro",
-            "gemini-2.0-flash-lite",
-            "gemini-2.0-pro-exp"
-        ]
+        ["gemini-2.0-flash-exp", "gemini-2.5-pro-preview-03-25"]
     )
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
 
     generate = st.button("Generate Travel Plan")
 
-
-# --------------------------------------------------
+# -----------------------------
 # Build Prompt
-# --------------------------------------------------
+# -----------------------------
 def build_prompt():
     return f"""
 Create a detailed travel itinerary in {language} for a trip from {source} to {destination} starting on {date_str}.
@@ -175,48 +163,42 @@ Provide:
 - Travel checklist
 """
 
-
-# --------------------------------------------------
-# Gemini API Call — FINAL FIXED VERSION
-# --------------------------------------------------
+# -----------------------------
+# Call Gemini
+# -----------------------------
 def call_gemini(prompt, image_bytes=None):
-    client = genai.Client(api_key=API_KEY)
+    try:
+        client = genai.Client(api_key=API_KEY)
 
-    parts = [{"text": prompt}]
+        contents = [{"type": "text", "text": prompt}]
+        if image_bytes:
+            contents.append({
+                "type": "image",
+                "inline_data": {"mime_type": "image/jpeg", "data": image_bytes}
+            })
 
-    if image_bytes:
-        parts.append({
-            "inline_data": {
-                "mime_type": "image/jpeg",
-                "data": image_bytes
-            }
-        })
+        result = client.models.generate_content(
+            model=model_choice,
+            contents=contents
+        )
+        return result.text
 
-    contents = [{
-        "role": "user",
-        "parts": parts
-    }]
+    except Exception as e:
+        if "RESOURCE_EXHAUSTED" in str(e):
+            return "⚠️ Gemini API quota exceeded. Please try again later."
+        else:
+            return f"⚠️ Gemini API error: {e}"
 
-    result = client.models.generate_content(
-        model=model_choice,
-        contents=contents
-    )
-
-    return result.text
-
-
-# --------------------------------------------------
-# Run Generator
-# --------------------------------------------------
+# -----------------------------
+# Generate Itinerary
+# -----------------------------
 if generate:
     if not API_KEY:
         st.error("❌ API Key missing. Add it to .streamlit/secrets.toml")
     else:
         st.info("⏳ Generating travel plan...")
-
         prompt = build_prompt()
         image_bytes = uploaded_image.read() if uploaded_image else None
-
         itinerary = call_gemini(prompt, image_bytes)
 
         st.success("✔ Your Travel Itinerary is Ready!")
