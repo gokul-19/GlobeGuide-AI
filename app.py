@@ -9,103 +9,81 @@ from google.genai import types
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib import colors
 
-# -----------------------------
-# Streamlit Config
-# -----------------------------
+# 1. SETUP CONFIG
 st.set_page_config(page_title="GlobeGuide-AI", page_icon="🌍", layout="wide")
 
-# -----------------------------
-# API Key Logic (Uses GEMINI_API_KEY)
-# -----------------------------
-# On your Mac terminal: export GEMINI_API_KEY='your_key'
-# On Streamlit Cloud: Add GEMINI_API_KEY to Secrets
+# 2. API KEY HANDLER
+# It checks Secrets first, then Environment Variables
 try:
-    DEFAULT_API_KEY = st.secrets["api_keys"]["GEMINI_API_KEY"]
+    api_key_source = st.secrets["api_keys"]["GEMINI_API_KEY"]
 except:
-    DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+    api_key_source = os.environ.get("GEMINI_API_KEY", "")
 
-# -----------------------------
-# PDF Generator
-# -----------------------------
-def generate_pdf(trip_details: dict, itinerary_text: str):
+# 3. PDF GENERATOR
+def generate_pdf(dest, text):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
-
-    title = ParagraphStyle(name="T", parent=styles["Title"], fontSize=24, textColor=colors.HexColor("#1A73E8"))
-    story.append(Paragraph(f"🌍 Trip to {trip_details['destination']}", title))
+    
+    title_style = ParagraphStyle(name="T", parent=styles["Title"], fontSize=22, textColor=colors.HexColor("#1A73E8"))
+    story.append(Paragraph(f"Itinerary: {dest}", title_style))
     story.append(Spacer(1, 20))
-
-    body = ParagraphStyle("B", parent=styles["Normal"], fontSize=11, leading=14)
-    clean_text = itinerary_text.replace("\n", "<br/>")
-    story.append(Paragraph(clean_text, body))
-
+    
+    body_style = ParagraphStyle("B", parent=styles["Normal"], fontSize=11, leading=14)
+    story.append(Paragraph(text.replace("\n", "<br/>"), body_style))
+    
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-# -----------------------------
-# Sidebar Configuration
-# -----------------------------
+# 4. SIDEBAR (Check Indentation carefully here!)
 with st.sidebar:
-    st.title("Trip Settings")
-    
-    source = st.text_input("Source", "Hyderabad")
-    destination = st.text_input("Destination", "London")
-    duration = st.slider("Duration (Days)", 1, 14, 5)
+    st.title("Settings")
+    source = st.text_input("From", "Hyderabad")
+    destination = st.text_input("To", "London")
+    days = st.slider("Days", 1, 14, 5)
     
     st.divider()
+    user_key = st.text_input("Own API Key (Optional)", type="password")
     
-    st.header("API & Model")
-    user_key = st.text_input("Custom Gemini Key (Optional)", type="password")
+    # Defaults to 1.5-flash because it's the MOST reliable for free users
+    model_id = st.selectbox("Model", ["gemini-1.5-flash", "gemini-3.1-flash-preview"])
     
-    # Updated 2026 Model IDs
-    model_id = st.selectbox(
-        "Gemini Model", 
-        ["gemini-3.1-flash-preview", "gemini-3.1-pro-preview", "gemini-1.5-flash"]
-    )
-    
-    generate_btn = st.button("Generate Travel Plan", use_container_width=True)
+    generate_btn = st.button("Generate Plan", use_container_width=True)
 
-# -----------------------------
-# Main Content Area
-# -----------------------------
+# 5. MAIN LOGIC
 st.title("🌍 GlobeGuide-AI")
 
 if generate_btn:
-    api_key = user_key if user_key else DEFAULT_API_KEY
+    # Use the key from sidebar if provided, otherwise use the system key
+    final_key = user_key if user_key else api_key_source
     
-    if not api_key:
-        st.error("⚠️ No API Key found. Please set GEMINI_API_KEY in your secrets or sidebar.")
+    if not final_key:
+        st.error("⚠️ No API Key found! Add 'GEMINI_API_KEY' to your Streamlit Secrets.")
     else:
-        with st.spinner(f"Gemini {model_id} is thinking..."):
-            client = genai.Client(api_key=api_key)
-            
-            prompt = f"Create a detailed {duration}-day travel itinerary from {source} to {destination}. Include food spots and transport."
-
+        with st.spinner("Thinking..."):
             try:
-                # Using Gemini 3 SDK generate_content
-                response = client.models.generate_content(
-                    model=model_id,
-                    contents=prompt
-                )
+                client = genai.Client(api_key=final_key)
+                prompt = f"Plan a {days} day trip from {source} to {destination}."
                 
-                result_text = response.text
-                st.success("Plan Generated!")
-                st.markdown(result_text)
+                response = client.models.generate_content(model=model_id, contents=prompt)
                 
-                # PDF Download
-                pdf_data = generate_pdf({"destination": destination}, result_text)
-                st.download_button("📥 Download PDF", data=pdf_data, file_name="itinerary.pdf")
-                
+                if response.text:
+                    st.success("Success!")
+                    st.markdown(response.text)
+                    
+                    pdf = generate_pdf(destination, response.text)
+                    st.download_button("📥 Download PDF", data=pdf, file_name="plan.pdf")
+            
             except Exception as e:
-                if "429" in str(e):
-                    st.error("⚠️ Quota Exceeded! Please wait 60 seconds or switch to 'gemini-1.5-flash'.")
+                # This catches the 'Quota' and 'Not Found' errors we saw in your screenshots
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    st.error("⚠️ Quota Exceeded! Wait 1 minute or use a new API key.")
                 elif "404" in str(e):
-                    st.error(f"⚠️ Model '{model_id}' not found. Try 'gemini-1.5-flash'.")
+                    st.error("⚠️ Model not found. Please select 'gemini-1.5-flash' in the sidebar.")
                 else:
                     st.error(f"⚠️ Error: {str(e)}")
