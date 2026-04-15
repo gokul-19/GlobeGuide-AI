@@ -138,12 +138,12 @@ with st.sidebar:
         help="If you provide a key, it will override the default key."
     )
 
-    st.header("Model Settings")
-    # UPDATED MODEL NAMES TO REMOVE THE 404 ERROR
-    model_choice = st.selectbox(
-        "Gemini Model",
-        ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
-    )
+   st.header("Model Settings")
+model_choice = st.selectbox(
+    "Gemini Model",
+    ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
+    index=0  # This makes 'flash' the default
+)
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
     generate = st.button("Generate Travel Plan")
