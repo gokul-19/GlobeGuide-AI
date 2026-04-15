@@ -139,10 +139,10 @@ with st.sidebar:
     )
 
     st.header("Model Settings")
-    model_choice = st.selectbox(
-        "Gemini Model",
-        ["gemini-2.0-flash-exp", "gemini-2.5-pro-preview-03-25"]
-    )
+ model_choice = st.selectbox(
+    "Gemini Model",
+    ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
+)
 
     uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
     generate = st.button("Generate Travel Plan")
