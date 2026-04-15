@@ -1,5 +1,6 @@
 import io
 import os
+import time
 from datetime import date
 
 import streamlit as st
@@ -17,7 +18,7 @@ from reportlab.lib import colors
 st.set_page_config(page_title="GlobeGuide-AI", page_icon="🌍", layout="wide")
 
 # -----------------------------
-# Default API Key (from secrets or env)
+# API Key Logic
 # -----------------------------
 try:
     DEFAULT_API_KEY = st.secrets["api_keys"]["GOOGLE_API_KEY"]
@@ -39,214 +40,143 @@ def generate_styled_pdf_buffer(trip_details: dict, itinerary_text: str):
     title_style = ParagraphStyle(
         name="TitleStyle",
         parent=styles["Title"],
-        fontSize=28,
-        leading=32,
+        fontSize=26,
+        leading=30,
         alignment=1,
         textColor=colors.HexColor("#1A73E8")
     )
 
-    story.append(Spacer(1, 40))
+    story.append(Spacer(1, 20))
     story.append(Paragraph("✈️ AI Travel Itinerary", title_style))
     story.append(Spacer(1, 15))
 
-    sub = ParagraphStyle(
-        name="Sub",
-        parent=styles["Normal"],
-        fontSize=14,
-        leading=20,
-        alignment=1
-    )
+    sub = ParagraphStyle(name="Sub", parent=styles["Normal"], fontSize=12, alignment=1)
+    story.append(Paragraph(f"{trip_details['source']} to {trip_details['destination']}", sub))
+    story.append(Paragraph(f"Start: {trip_details['date']} | {trip_details['duration']} Days", sub))
+    story.append(Spacer(1, 30))
 
-    story.append(Paragraph(f"{trip_details['source']} → {trip_details['destination']}", sub))
-    story.append(Paragraph(f"Start: {trip_details['date']}", sub))
-    story.append(Paragraph(f"Duration: {trip_details['duration']} days", sub))
-    story.append(Paragraph(f"Budget: {trip_details['currency']} {trip_details['budget']}", sub))
-    story.append(Spacer(1, 40))
-
-    story.append(PageBreak())
-
-    summary = [
-        ["Source", trip_details["source"]],
-        ["Destination", trip_details["destination"]],
-        ["Start Date", trip_details["date"]],
-        ["Duration", f"{trip_details['duration']} days"],
+    summary_data = [
+        ["Field", "Details"],
         ["Budget", f"{trip_details['currency']} {trip_details['budget']}"],
-        ["Language", trip_details["language"]],
+        ["Style", trip_details["travel_style"]],
         ["Accommodation", trip_details["accommodation_preference"]],
-        ["Travel Style", trip_details["travel_style"]],
+        ["Language", trip_details["language"]]
     ]
 
-    table = Table(summary, colWidths=[140, 320])
+    table = Table(summary_data, colWidths=[120, 300])
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (1, 0), colors.HexColor("#1A73E8")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1A73E8")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F0F4FF")),
-        ("GRID", (0, 0), (-1, -1), 0.8, colors.grey),
-        ("BOX", (0, 0), (-1, -1), 1, colors.black)
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("PADDING", (0, 0), (-1, -1), 6),
     ]))
 
-    story.append(Paragraph("<b>Trip Summary</b>", styles["Heading2"]))
     story.append(table)
     story.append(Spacer(1, 20))
-
+    
     story.append(Paragraph("<b>Detailed Itinerary</b>", styles["Heading2"]))
-    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=12, leading=16)
-
-    # Convert Markdown-like line breaks to PDF-friendly breaks
-    formatted_itinerary = itinerary_text.replace("\n", "<br/>")
-    story.append(Paragraph(formatted_itinerary, body))
+    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14)
+    
+    # Clean up text for PDF
+    clean_text = itinerary_text.replace("\n", "<br/>")
+    story.append(Paragraph(clean_text, body_style))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
 # -----------------------------
-# Sidebar / Inputs
+# Sidebar
+# -----------------------------
+with st.sidebar:
+    st.title("Trip Configuration")
+    
+    source = st.text_input("Source", "New York")
+    destination = st.text_input("Destination", "Paris")
+    date_input = st.date_input("Start Date", date.today())
+    duration = st.slider("Duration (days)", 1, 30, 5)
+    
+    st.divider()
+    
+    budget = st.number_input("Budget", min_value=100, value=1500)
+    currency = st.selectbox("Currency", ["USD", "INR", "EUR", "GBP"])
+    
+    st.header("Preferences")
+    language = st.selectbox("Itinerary Language", ["English", "Hindi", "French", "Spanish"])
+    travel_style = st.selectbox("Travel Style", ["Relaxed", "Fast-Paced", "Adventurous"])
+    accommodation_preference = st.selectbox("Accommodation", ["Hotel", "Hostel", "Airbnb"])
+    
+    st.header("API & Model")
+    user_api_key = st.text_input("Custom API Key (Optional)", type="password")
+    
+    # CORRECTED MODELS
+    model_choice = st.selectbox(
+        "Gemini Model",
+        ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+    )
+    
+    uploaded_image = st.file_uploader("Upload reference image", type=["jpg", "png"])
+    generate_btn = st.button("Generate Plan", use_container_width=True)
+
+# -----------------------------
+# API Logic
+# -----------------------------
+def call_gemini(api_key, model, prompt, image_bytes):
+    key = api_key if api_key else DEFAULT_API_KEY
+    if not key:
+        return "ERROR: Missing API Key."
+
+    client = genai.Client(api_key=key)
+    content_list = [prompt]
+    
+    if image_bytes:
+        content_list.append(Image(content=image_bytes, mime_type="image/jpeg"))
+
+    # Retry loop for Quota Exceeded
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(model=model, contents=content_list)
+            return response.text
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                if attempt < 2:
+                    time.sleep(5)
+                    continue
+            return f"⚠️ API Error: {str(e)}"
+
+# -----------------------------
+# Main UI
 # -----------------------------
 st.title("🌍 GlobeGuide-AI")
-st.subheader("Generate your perfect travel itinerary with AI ✨")
 
-with st.sidebar:
-    st.header("Trip Details")
-    source = st.text_input("Source", "New York")
-    destination = st.text_input("Destination", "Los Angeles")
-    date_input = st.date_input("Start Date", date.today())
-    date_str = date_input.strftime("%Y-%m-%d")
-    budget = st.number_input("Budget", min_value=100, value=1000)
-    duration = st.slider("Duration (days)", 1, 60, 7)
-    currency = st.selectbox("Currency", ["USD", "EUR", "INR", "GBP", "AUD", "JPY"])
-
-    st.header("Preferences")
-    language = st.selectbox(
-        "Language",
-        ["English", "Spanish", "French", "German", "Japanese", "Chinese",
-         "Portuguese", "Arabic", "Hindi", "Bengali", "Tamil", "Telugu", "Kannada",
-         "Korean", "Italian", "Russian", "Dutch"]
-    )
-    interests = st.text_input("Interests", "nature, historical sites")
-    dietary = st.text_input("Dietary Restrictions", "None")
-    activity_level = st.selectbox("Activity Level", ["Low", "Moderate", "High"])
-    accommodation_preference = st.selectbox("Accommodation", ["Hotel", "Hostel", "Apartment"])
-    travel_style = st.selectbox("Travel Style", ["Relaxed", "Fast-Paced", "Adventurous"])
-    landmarks = st.text_input("Must Visit Landmarks", "Eiffel Tower, Grand Canyon")
-
-    st.header("API Key Settings")
-    user_api_key = st.text_input(
-        "Enter your own API key (optional)",
-        value="",
-        type="password",
-        help="If you provide a key, it will override the default key."
-    )
-
-   st.header("Model Settings")
-model_choice = st.selectbox(
-    "Gemini Model",
-    ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
-    index=0  # This makes 'flash' the default
-)
-
-    uploaded_image = st.file_uploader("Upload an image (optional)", ["jpg", "png"])
-    generate = st.button("Generate Travel Plan")
-
-# -----------------------------
-# Build Prompt
-# -----------------------------
-def build_prompt():
-    return f"""
-Create a detailed travel itinerary in {language} for a trip from {source} to {destination} starting on {date_str}.
-Duration: {duration} days.
-Budget: {currency} {budget}.
-
-Interests: {interests}
-Dietary restrictions: {dietary}
-Activity level: {activity_level}
-Accommodation preference: {accommodation_preference}
-Travel style: {travel_style}
-Must visit landmarks: {landmarks}
-
-Provide:
-- Full daily plan
-- Morning / Afternoon / Evening schedule
-- Food recommendations
-- Transportation guidance
-- Travel checklist
-"""
-
-# -----------------------------
-# Call Gemini API
-# -----------------------------
-def call_gemini(prompt, image_bytes=None, api_key=None):
-    key_to_use = api_key.strip() if api_key and api_key.strip() else DEFAULT_API_KEY
-    if not key_to_use:
-        return "⚠️ No API key found! Please enter one in the sidebar or check your secrets.toml."
-
-    client = genai.Client(api_key=key_to_use)
-
-    # Prepare content parts
-    contents = [prompt]
-
-    if image_bytes:
-        # Handling for newer google-genai SDK
-        img = Image(content=image_bytes, mime_type="image/jpeg")
-        contents.append(img)
-
-    try:
-        result = client.models.generate_content(
-            model=model_choice,
-            contents=contents
-        )
-        return result.text
-    except Exception as e:
-        if "404" in str(e):
-            return f"⚠️ Error 404: The model '{model_choice}' was not found. Please try 'gemini-1.5-flash'."
-        elif "RESOURCE_EXHAUSTED" in str(e):
-            return "⚠️ Gemini API quota exceeded. Please try again later."
+if generate_btn:
+    with st.spinner("Artificial Intelligence is crafting your journey..."):
+        prompt = f"""
+        Create a {duration}-day travel itinerary from {source} to {destination}.
+        Start Date: {date_input.strftime('%Y-%m-%d')}
+        Budget: {currency} {budget}
+        Language: {language}
+        Style: {travel_style}
+        Accommodation: {accommodation_preference}
+        Include daily schedules, food spots, and travel tips.
+        """
+        
+        img_data = uploaded_image.read() if uploaded_image else None
+        result = call_gemini(user_api_key, model_choice, prompt, img_data)
+        
+        if "⚠️" in result or "ERROR" in result:
+            st.error(result)
         else:
-            return f"⚠️ Gemini API error: {e}"
-
-# -----------------------------
-# Main Logic
-# -----------------------------
-if generate:
-    with st.spinner("🌍 Planning your journey..."):
-        prompt = build_prompt()
-        image_bytes = uploaded_image.read() if uploaded_image else None
-        itinerary = call_gemini(prompt, image_bytes, api_key=user_api_key)
-
-    if "⚠️" in itinerary:
-        st.error(itinerary)
-    else:
-        st.success("✔ Your Travel Itinerary is Ready!")
-        st.markdown(itinerary)
-
-        # Generate PDF
-        pdf_buffer = generate_styled_pdf_buffer(
-            {
-                "source": source,
-                "destination": destination,
-                "date": date_str,
-                "budget": budget,
-                "duration": duration,
-                "currency": currency,
-                "language": language,
-                "accommodation_preference": accommodation_preference,
-                "travel_style": travel_style,
-            },
-            itinerary
-        )
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button(
-                "📄 Download Styled PDF",
-                data=pdf_buffer,
-                file_name=f"Travel_Itinerary_{destination}.pdf",
-                mime="application/pdf"
-            )
-        with col2:
-            st.download_button(
-                "📄 Download TXT File",
-                data=itinerary,
-                file_name=f"Travel_Itinerary_{destination}.txt",
-                mime="text/plain"
-            )
+            st.success("Plan Generated!")
+            st.markdown(result)
+            
+            # PDF Generation
+            pdf = generate_styled_pdf_buffer({
+                "source": source, "destination": destination, "date": date_input,
+                "duration": duration, "budget": budget, "currency": currency,
+                "language": language, "travel_style": travel_style,
+                "accommodation_preference": accommodation_preference
+            }, result)
+            
+            st.download_button("📥 Download PDF Itinerary", data=pdf, file_name="trip_plan.pdf")
